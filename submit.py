@@ -48,11 +48,9 @@ REMOTE_PASS = config.get("Remote", "password", fallback=None)
 REMOTE_DIR = config.get("Remote", "dir", fallback=None)
 
 # BDIP Tools
-BDIP_METADATA_PATH = config.get("BDIPTools", "metadata_path", fallback=None)
 BDIP_RESULTS_PATH = config.get("BDIPTools", "results_path", fallback=None)
-BDIP_TOOLS_PATH = config.get("BDIPTools", "tools_folder", fallback=None)
 BDIP_CONFIG_PATH = config.get("BDIPTools", "config_path", fallback=None)
-BDIP_PROJECT_PATH = config.get("BDIPTools", "project_path", fallback=None)
+BDIP_DOCKERFILES_PATH = config.get("Dockerfiles", "path", fallback=None)
 
 # ----------------------------
 # SESSION INIT
@@ -3138,7 +3136,7 @@ elif st.session_state.current_page == "BDIP Tools":
         if st.button("← Back to Home"):
             change_page("Home")
 
-    project_path = BDIP_PROJECT_PATH or os.getcwd()
+    project_path = BDIP_DOCKERFILES_PATH or os.getcwd()
 
     config_path = os.path.join(project_path, ".config.ini")
     dockerfiles_path = os.path.join(project_path, "dockerfiles")
@@ -3225,15 +3223,13 @@ elif st.session_state.current_page == "BDIP Tools":
                 "--group-add", docker_gid,
                 "--user", f"{uid}:{gid}",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
-                "-v", f"{BDIP_CONFIG_PATH}:/home/bdip-user/.config/bdip-tools/.config.ini",
-                "-v", f"{BDIP_METADATA_PATH}:/metadata",
-                "-v", f"{BDIP_PROJECT_PATH}:/dockerfiles",
-                "-v", f"{BDIP_TOOLS_PATH}:/tools_folder",
+                "-v", f"{BDIP_CONFIG_PATH}/.config.ini:/home/bdip-user/.config/bdip-tools/config.ini",
+                "-v", f"{BDIP_DOCKERFILES_PATH}:{BDIP_DOCKERFILES_PATH}",
                 "-v", f"{BDIP_RESULTS_PATH}:/results",
                 "-w", "/results",
                 "pegi3s/bdip-tools"
             ]
-
+            
             if user_args:
                 cmd += shlex.split(user_args)
 
@@ -3245,7 +3241,8 @@ elif st.session_state.current_page == "BDIP Tools":
             )
 
             # Re-using the same output_box defined above
-            logs = ""
+            logs =" ".join(cmd) + "  " 
+            #logs=""  
 
             for line in process.stdout:
                 logs += line
