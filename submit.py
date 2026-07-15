@@ -51,6 +51,9 @@ REMOTE_DIR = config.get("Remote", "dir", fallback=None)
 BDIP_RESULTS_PATH = config.get("BDIPTools", "results_path", fallback=None)
 BDIP_CONFIG_PATH = config.get("BDIPTools", "config_path", fallback=None)
 BDIP_DOCKERFILES_PATH = config.get("Dockerfiles", "path", fallback=None)
+BDIP_HOST_DOCKER_GROUP = config.get("BDIPTools", "docker_group", fallback=None)
+BDIP_HOST_USER_ID = config.get("BDIPTools", "host_user_id", fallback=None)
+BDIP_HOST_USER_GROUP = config.get("BDIPTools", "host_user_group", fallback=None)
 
 # ----------------------------
 # SESSION INIT
@@ -3220,12 +3223,14 @@ elif st.session_state.current_page == "BDIP Tools":
 
             cmd = [
                 "docker", "run", "--rm",
-                "--group-add", docker_gid,
-                "--user", f"{uid}:{gid}",
+                "--group-add", f"{BDIP_HOST_DOCKER_GROUP}",
+                "--user", f"{BDIP_HOST_USER_ID}:{BDIP_HOST_USER_GROUP}",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
                 "-v", f"{BDIP_CONFIG_PATH}/.config.ini:/home/bdip-user/.config/bdip-tools/config.ini",
                 "-v", f"{BDIP_DOCKERFILES_PATH}:{BDIP_DOCKERFILES_PATH}",
                 "-v", f"{BDIP_RESULTS_PATH}:/results",
+                "-v", "/home/bdip-user/.cache/bdip-tools:/home/bdip-user/.cache/bdip-tools",
+                "-v", "/tmp:/tmp",        
                 "-w", "/results",
                 "pegi3s/bdip-tools"
             ]
