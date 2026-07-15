@@ -4300,18 +4300,6 @@ if st.session_state.current_page == "New Image":
                             check=True
                         )
 
-                        add_log("Updating .gitignore", "INFO")
-
-                        gitignore_path = repo_path / ".gitignore"
-                        rules_to_add = ["metadata.json", "ontology.diaf", "test_data/"]
-
-                        content = gitignore_path.read_text() if gitignore_path.exists() else ""
-                        
-                        with open(gitignore_path, "a") as f:
-                            for rule in rules_to_add:
-                                if rule not in content:
-                                    f.write(f"{rule}\n")
-
                         project = st.session_state.project
                         submission_dir = Path(BASE_PATH) / project / "for_submission"
 
