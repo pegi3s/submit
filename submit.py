@@ -5638,9 +5638,9 @@ elif st.session_state.current_page == "Test Docker Image":
     # -------------------------------------------------
 
     def build_command_from_metadata(metadata):
-        general = metadata.get("invocation_general", "")
-        specific = metadata.get("test_invocation_specific", "")
-        return f"{general}{specific}".strip()
+        general = metadata.get("invocation_general", "").strip()
+        specific = metadata.get("test_invocation_specific", "").strip()
+        return f"{general} {specific}"
 
     def normalize_paths(command):
         command = command.replace("/data/test/data/", str(input_dir.resolve()) + "/")
