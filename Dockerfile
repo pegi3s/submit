@@ -32,13 +32,15 @@ RUN wget -O /tmp/firefox.tar.xz \
     ln -sf /opt/firefox/firefox /usr/local/bin/firefox && \
     rm -f /tmp/firefox.tar.xz
 
-# Basic configuration to skip first-run screens
-RUN mkdir -p /opt/firefox/defaults/pref && \
-    echo 'pref("general.config.filename", "mozilla.cfg");' > /opt/firefox/defaults/pref/local-settings.js && \
-    echo 'pref("general.config.obscure_value", 0);' >> /opt/firefox/defaults/pref/local-settings.js && \
-    printf 'lockPref("browser.aboutwelcome.enabled", false);\nlockPref("datareporting.policy.dataSubmissionEnabled", false);' > /opt/firefox/mozilla.cfg
+# Firefox profile with pre-configured preferences to skip first-run screens
+RUN mkdir -p /opt/firefox-profile /opt/firefox/distribution && \
+    printf 'user_pref("browser.aboutwelcome.enabled", false);\nuser_pref("browser.startup.homepage_override.mstone", "ignore");\nuser_pref("startup.homepage_welcome_url", "");\nuser_pref("startup.homepage_override_url", "");\nuser_pref("toolkit.telemetry.reportingpolicy.firstRun", false);\nuser_pref("datareporting.policy.firstRunURL", "");\nuser_pref("datareporting.policy.dataSubmissionEnabled", false);\nuser_pref("browser.shell.checkDefaultBrowser", false);\nuser_pref("browser.tabs.firefox-view", false);\nuser_pref("browser.migrate.content-modal.about-welcome.enabled", false);\nuser_pref("trailhead.firstrun.didSeeAboutWelcome", true);\nuser_pref("browser.startup.page", 0);\nuser_pref("identity.fxaccounts.enabled", false);\nuser_pref("services.sync.engine.addons", false);\nuser_pref("browser.newtabpage.activity-stream.asrouter.providers.onboarding", "{}");\nuser_pref("messaging-system.rsexperimentloader.enabled", false);\nuser_pref("browser.onboarding.enabled", false);\nuser_pref("browser.onboarding.seen-tourset-version", 999);\nuser_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);\nuser_pref("datareporting.policy.dataSubmissionPolicyAcceptedVersion", 2);\nuser_pref("datareporting.policy.dataSubmissionPolicyNotifiedTime", 1750000000000);' > /opt/firefox-profile/user.js && \
+    cp /opt/firefox-profile/user.js /opt/firefox-profile/prefs.js && \
+    printf '{"created":1750000000000,"firstUse":1750000000000}' > /opt/firefox-profile/times.json && \
+    printf '{"policies":{"DisableFirefoxStudies":true,"DisableTelemetry":true,"DontCheckDefaultBrowser":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","NoDefaultBookmarks":true}}' > /opt/firefox/distribution/policies.json
 
 ENV DISPLAY=:0
+ENV MOZ_AUTOMATION=1
 
 # Install streamlit
 
@@ -49,9 +51,6 @@ RUN mkdir -p ~/.streamlit/
 RUN echo "[browser]\ngatherUsageStats = false\n" > ~/.streamlit/config.toml
 RUN echo "[server]\nheadless = true\n" > ~/.streamlit/config.toml
 
-# Copy Python script
-
-COPY submit.py /opt
 WORKDIR /opt
 
 # Clone the project
@@ -85,9 +84,16 @@ RUN proj=$(ls /opt/bdip-web-manager/dist/) && \
 # Build start script
 RUN echo '#!/bin/bash' > /opt/start && \
     echo 'python3 -m http.server 4200 --directory /opt/bdip-web-manager-dist &' >> /opt/start && \
-    echo 'firefox http://localhost:8501 &' >> /opt/start && \
-    echo 'exec streamlit run submit.py' >> /opt/start && \
+    echo 'HTTP_PID=$!' >> /opt/start && \
+    echo 'streamlit run submit.py &' >> /opt/start && \
+    echo 'STREAMLIT_PID=$!' >> /opt/start && \
+    echo 'firefox --profile /opt/firefox-profile http://localhost:8501' >> /opt/start && \
+    echo 'kill $STREAMLIT_PID $HTTP_PID 2>/dev/null' >> /opt/start && \
+    echo 'wait' >> /opt/start && \
     chmod 777 /opt/start
+
+
+COPY submit.py /opt
 
 CMD ["/opt/start"]
  
