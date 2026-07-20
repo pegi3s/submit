@@ -272,6 +272,78 @@ def get_project_metadata(project_name):
 
     return {}
 
+def run_bdip_auto_tests(base, add_log_func, local_metadata=None, extra_args=None, project_name=None):
+    has_auto_tests = False
+    if local_metadata is not None:
+        has_auto_tests = bool(local_metadata.get("auto_tests"))
+    else:
+        remote_meta = get_project_metadata(base)
+        has_auto_tests = bool(remote_meta and remote_meta.get("auto_tests"))
+
+    if not has_auto_tests:
+        add_log_func("No auto-tests configured, skipping", "INFO")
+        return True, ""
+
+    if not all([BDIP_CONFIG_PATH, BDIP_RESULTS_PATH]):
+        add_log_func("BDIP Tools paths not configured in .config.ini", "WARNING")
+        return True, ""
+
+    submission_dir = f"{BDIP_CONFIG_PATH}/{project_name}/for_submission"
+
+    add_log_func("Checking BDIP Tools image...", "INFO")
+    check = subprocess.run(
+        ["docker", "image", "inspect", "pegi3s/bdip-tools"],
+        capture_output=True, text=True
+    )
+    if check.returncode != 0:
+        add_log_func("Pulling pegi3s/bdip-tools...", "INFO")
+        pull = subprocess.run(
+            ["docker", "pull", "pegi3s/bdip-tools"],
+            capture_output=True, text=True
+        )
+        if pull.returncode != 0:
+            add_log_func("Failed to pull BDIP Tools image", "ERROR")
+            return False, pull.stderr
+
+    add_log_func(f"Running bdip test-images --image {base} --skip-pull --dry-run", "STEP")
+
+    cmd = [
+        "docker", "run", "--rm",
+        "--group-add", str(BDIP_HOST_DOCKER_GROUP),
+        "--user", f"{BDIP_HOST_USER_ID}:{BDIP_HOST_USER_GROUP}",
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "-v", f"{BDIP_CONFIG_PATH}/.config.ini:/home/bdip-user/.config/bdip-tools/config.ini",
+        "-v", f"{submission_dir}:{submission_dir}",
+        "-v", f"{BDIP_RESULTS_PATH}:/results",
+        "-v", "/tmp:/tmp",
+        "-w", "/results",
+        "pegi3s/bdip-tools",
+        "test-images", "--image", base, "--skip-pull", "--dry-run",
+        "--metadata-file", f"{submission_dir}/metadata.json",
+    ]
+
+    if extra_args:
+        cmd += shlex.split(extra_args)
+    else:
+        add_log_func("BDIP Tools command:", "STEP")
+    add_log_func(" ".join(cmd), "STEP")
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode == 0:
+        add_log_func("BDIP auto-tests ran successfully", "SUCCESS")
+        if result.stdout:
+            for line in result.stdout.strip().splitlines():
+                add_log_func(line, "INFO")
+        return True, result.stdout
+    else:
+        error_output = result.stderr or result.stdout
+        add_log_func("BDIP auto-tests failed", "ERROR")
+        if error_output:
+            for line in error_output.strip().splitlines():
+                add_log_func(line, "ERROR")
+        return False, error_output
+
 def get_terminal_terms(ontology, relations):
 
     children = set(relations.keys())
@@ -3229,7 +3301,6 @@ elif st.session_state.current_page == "BDIP Tools":
                 "-v", f"{BDIP_CONFIG_PATH}/.config.ini:/home/bdip-user/.config/bdip-tools/config.ini",
                 "-v", f"{BDIP_DOCKERFILES_PATH}:{BDIP_DOCKERFILES_PATH}",
                 "-v", f"{BDIP_RESULTS_PATH}:/results",
-                "-v", "/home/bdip-user/.cache/bdip-tools:/home/bdip-user/.cache/bdip-tools",
                 "-v", "/tmp:/tmp",        
                 "-w", "/results",
                 "pegi3s/bdip-tools"
@@ -5555,6 +5626,8 @@ elif st.session_state.current_page == "Test Docker Image":
         
         st.stop()
 
+    base = metadata.get("name") if metadata else split_project_name(project)[0]
+
     # -------------------------------------------------
     # BUILD IMAGE
     # -------------------------------------------------
@@ -5729,4 +5802,52 @@ elif st.session_state.current_page == "Test Docker Image":
 
             with st.expander("📄 Logs"):
                 st.code("\n".join(log_lines))
+
+    # -------------------------------------------------
+    # BDIP AUTO-TESTS
+    # -------------------------------------------------
+
+    st.divider()
+    st.subheader("🧪 BDIP Auto-Tests")
+
+    if "bdip_auto_test_logs" not in st.session_state:
+        st.session_state.bdip_auto_test_logs = []
+    if "bdip_auto_test_result" not in st.session_state:
+        st.session_state.bdip_auto_test_result = None
+
+    log_box = st.empty()
+    existing = "\n".join(st.session_state.bdip_auto_test_logs)
+    if existing:
+        log_box.code(existing)
+
+    def bdip_add_log(message, level="INFO"):
+        prefix = {
+            "INFO": "[INFO]    ", "SUCCESS": "[SUCCESS] ",
+            "WARNING": "[WARNING] ", "ERROR": "[ERROR]   ",
+            "STEP": "[STEP]    "
+        }.get(level, "[INFO] ")
+        st.session_state.bdip_auto_test_logs.append(f"{prefix}{message}")
+        log_box.code("\n".join(st.session_state.bdip_auto_test_logs))
+
+    has_auto_tests = bool(metadata and metadata.get("auto_tests"))
+
+    if not has_auto_tests:
+        st.info("No auto-tests configured for this image in metadata.json")
+    elif st.session_state.bdip_auto_test_result == "success":
+        st.success("BDIP auto-tests ran successfully!")
+    elif st.session_state.bdip_auto_test_result == "failed":
+        st.error("BDIP auto-tests failed. Check the logs above.")
+    else:
+        extra_args = st.text_input(
+            "Additional arguments (optional)",
+            placeholder="e.g. --verbose",
+            key="bdip_extra_args"
+        )
+        if st.button("▶️ Run BDIP Auto-Tests", use_container_width=True):
+            success, _ = run_bdip_auto_tests(
+                base, bdip_add_log, local_metadata=metadata, extra_args=extra_args,
+                project_name=project
+            )
+            st.session_state.bdip_auto_test_result = "success" if success else "failed"
+            st.rerun()
 
