@@ -23,6 +23,7 @@ RUN apt-get update && \
       libcanberra-gtk3-module \
       openssh-client \
       sshpass \
+      wmctrl \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and extract Firefox
@@ -87,13 +88,17 @@ RUN echo '#!/bin/bash' > /opt/start && \
     echo 'HTTP_PID=$!' >> /opt/start && \
     echo 'streamlit run submit.py &' >> /opt/start && \
     echo 'STREAMLIT_PID=$!' >> /opt/start && \
-    echo 'firefox --profile /opt/firefox-profile http://localhost:8501' >> /opt/start && \
+    echo 'firefox --profile /opt/firefox-profile http://localhost:8501 &' >> /opt/start && \
+    echo 'FIREFOX_PID=$!' >> /opt/start && \
+    echo 'sleep 3 && wmctrl -r "Firefox" -b add,maximized_vert,maximized_horz' >> /opt/start && \
+    echo 'wait $FIREFOX_PID' >> /opt/start && \
     echo 'kill $STREAMLIT_PID $HTTP_PID 2>/dev/null' >> /opt/start && \
     echo 'wait' >> /opt/start && \
     chmod 777 /opt/start
 
 
 COPY submit.py /opt
+COPY VERSION /opt
 
 CMD ["/opt/start"]
  

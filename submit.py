@@ -56,6 +56,12 @@ BDIP_HOST_USER_ID = config.get("BDIPTools", "host_user_id", fallback=None)
 BDIP_HOST_USER_GROUP = config.get("BDIPTools", "host_user_group", fallback=None)
 
 # ----------------------------
+# VERSION
+# ----------------------------
+with open(os.path.join(os.path.dirname(__file__), "VERSION")) as f:
+    VERSION = f.read().strip()
+
+# ----------------------------
 # SESSION INIT
 # ----------------------------
 if "current_page" not in st.session_state:
@@ -794,7 +800,7 @@ def get_ontology_path(term_id, terms_map, relations):
 
 
 st.set_page_config(
-    page_title="BDIP Submit",
+    page_title=f"BDIP Submit v{VERSION}",
     layout="wide" 
 )
 
@@ -1446,6 +1452,16 @@ if st.session_state.current_page == "Home":
     </svg>
     """
 
+    dashboard_svg = """
+    <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="#F3E8FF"/>
+        <path d="M32 14C21.5 14 13 22.5 13 34C13 45.5 21.5 52 32 52C42.5 52 51 45.5 51 34C51 22.5 42.5 14 32 14Z" fill="#A855F7"/>
+        <path d="M32 34V22" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <path d="M32 34L40 44" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="32" cy="34" r="4" fill="white"/>
+    </svg>
+    """
+
     # =========================
     # CSS
     # =========================
@@ -1607,6 +1623,24 @@ if st.session_state.current_page == "Home":
         }
 
         /* =========================
+        PURPLE
+        ========================= */
+
+        .custom-card.purple {
+            border: 1px solid rgba(168,85,247,0.18);
+            background: linear-gradient(
+                145deg,
+                rgba(168,85,247,0.06),
+                rgba(255,255,255,0.02)
+            );
+        }
+
+        .custom-card.purple:hover {
+            border-color: #a855f7;
+            box-shadow: 0 12px 30px rgba(168,85,247,0.22);
+        }
+
+        /* =========================
         ICONS
         ========================= */
 
@@ -1660,7 +1694,7 @@ if st.session_state.current_page == "Home":
     # HERO
     # =========================
     st.markdown('<div class="hero-title">pegi3s BDIP</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-sub">Submission Platform</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="hero-sub">Submission Platform v{VERSION}</div>', unsafe_allow_html=True)
 
     st.caption("Choose what you want to do:")
 
@@ -1712,13 +1746,26 @@ if st.session_state.current_page == "Home":
     with c4:
         card("BDIP Tools", "Tools & utilities", tools_svg, "?nav=tools", "red")
 
-    with center:
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    center_left, center_right = st.columns(2)
+
+    with center_left:
         card(
             "Test Docker Image",
             "Run and validate an existing Docker image",
             test_svg,
             "?nav=test_image",
             "indigo"
+        )
+
+    with center_right:
+        card(
+            "BDIP Dashboard",
+            "Opens the BDIP internal dashboard",
+            dashboard_svg,
+            "http://evolution6.i3s.up.pt/static/pegi3s/bdip-dashboard/",
+            "purple"
         )
 
     st.stop()
